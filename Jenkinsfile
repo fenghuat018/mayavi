@@ -6,6 +6,11 @@ apiVersion: v1
 kind: Pod
 spec:
   containers:
+  - name: sonar
+    image: eclipse-temurin:17-jre
+    command:
+    - cat
+    tty: true
   - name: gcloud
     image: google/cloud-sdk:slim
     command:
