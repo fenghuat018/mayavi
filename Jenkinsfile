@@ -27,10 +27,12 @@ spec:
 
     stage('Sonar Scan') {
       steps {
-        container('gcloud') {
-          script {
-            def scannerHome = tool 'sonar-scanner'
-            sh "${scannerHome}/bin/sonar-scanner"
+        container('sonar') {
+          withSonarQubeEnv('sonarqube') {
+            script {
+              def scannerHome = tool 'sonar-scanner'
+              sh "${scannerHome}/bin/sonar-scanner"
+            }
           }
         }
       }
