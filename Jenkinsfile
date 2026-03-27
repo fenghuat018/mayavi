@@ -6,11 +6,6 @@ apiVersion: v1
 kind: Pod
 spec:
   containers:
-  - name: sonar
-    image: sonarsource/sonar-scanner-cli:latest
-    command:
-    - cat
-    tty: true
   - name: gcloud
     image: google/cloud-sdk:slim
     command:
