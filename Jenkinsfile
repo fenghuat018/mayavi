@@ -7,7 +7,7 @@ kind: Pod
 spec:
   containers:
   - name: sonar
-    image: eclipse-temurin:17-jre
+    image: sonarsource/sonar-scanner-cli:latest
     command:
     - cat
     tty: true
@@ -19,6 +19,16 @@ spec:
 """
     }
   }
+ options {
+    timestamps()
+  }
+
+  environment {
+    GCP_PROJECT      = 'teamproject-zhang-tong'
+    DATAPROC_REGION  = 'us-central1'
+    DATAPROC_CLUSTER = 'hadoop-cluster'
+    HADOOP_BUCKET    = 'teamproject-zhang-tong-shuangxz-bucket'
+  }
  
   stages {
     stage('Checkout') {
@@ -28,11 +38,8 @@ spec:
     stage('Sonar Scan') {
       steps {
         container('sonar') {
-          withSonarQubeEnv('sonarqube') {
-            script {
-              def scannerHome = tool 'sonar-scanner'
-              sh "${scannerHome}/bin/sonar-scanner"
-            }
+          withSonarQubeEnv('SonarQube') {
+            sh 'sonar-scanner'
           }
         }
       }
@@ -45,19 +52,27 @@ spec:
         }
       }
     }
+   
     stage('Run Hadoop Job') {
       steps {
         container('gcloud') {
-          sh '''
-          gcloud dataproc jobs submit hadoop \
-            --project teamproject14848 \
-            --region us-central1 \
-            --cluster hadoop-cluster \
-            --jar file:///usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar \
-            -- wordcount \
-            gs://teamproject14848-shuangxz-bucket/input/input.txt \
-            gs://teamproject14848-shuangxz-bucket/output/wordcount-${BUILD_NUMBER}
-          '''
+          withCredentials([file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+            sh '''
+              gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+              gcloud config set project "$GCP_PROJECT"
+              gcloud auth list
+              gcloud config list project
+
+              gcloud dataproc jobs submit hadoop \
+                --project "$GCP_PROJECT" \
+                --region "$DATAPROC_REGION" \
+                --cluster "$DATAPROC_CLUSTER" \
+                --jar file:///usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar \
+                -- wordcount \
+                gs://${HADOOP_BUCKET}/input/input.txt \
+                gs://${HADOOP_BUCKET}/output/wordcount-${BUILD_NUMBER}
+            '''
+          }
         }
       }
     }
