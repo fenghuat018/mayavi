@@ -85,7 +85,7 @@ spec:
               echo "Dataproc master instance: $MASTER_INSTANCE"
 
               echo "Locating Hadoop streaming jar on Dataproc master..."
-              STREAMING_JAR=$(gcloud compute ssh "$MASTER_INSTANCE" \
+              STREAMING_JAR=$(gcloud compute ssh "jenkins@$MASTER_INSTANCE" \
                 --zone "$DATAPROC_ZONE" \
                 --quiet \
                 --command='find /usr/lib -name "hadoop-streaming*.jar" 2>/dev/null | head -n 1')
