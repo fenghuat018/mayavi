@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import os
 import sys
 
@@ -8,15 +8,11 @@ filename = (
     or "unknown_file"
 )
 
-base = filename.split("/")[-1]
-display_name = base.replace("__", "/")
+display_name = filename.split("/")[-1].replace("__", "/")
 
 count = 0
 
-try:
-    for line in sys.stdin:
-        count += 1
-except Exception:
-    pass
+for line in sys.stdin.buffer:
+    count += 1
 
 print(f"{display_name}\t{count}")
