@@ -24,7 +24,7 @@ spec:
     GCP_PROJECT      = 'teamproject-zhang-tong'
     DATAPROC_REGION  = 'us-central1'
     DATAPROC_CLUSTER = 'hadoop-cluster'
-    HADOOP_BUCKET    = 'teamproject-zhang-tong-shuangxz-bucket'
+    HADOOP_BUCKET    = 'teamproject-zhang-tong-shuangxz-bucket0'
   }
  
   stages {
