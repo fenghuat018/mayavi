@@ -1,5 +1,5 @@
 pipeline {
- agent {
+  agent {
     kubernetes {
       yaml """
 apiVersion: v1
@@ -27,13 +27,15 @@ spec:
     DATAPROC_CLUSTER = 'hadoop-cluster'
     HADOOP_BUCKET    = 'teamproject-zhang-tong-bucket0'
 
-    REPO_GCS_PATH   = "gs://${HADOOP_BUCKET}/repo-src/${BUILD_NUMBER}"
-    OUTPUT_GCS_PATH = "gs://${HADOOP_BUCKET}/output/lines-${BUILD_NUMBER}"
+    REPO_GCS_PATH    = "gs://${HADOOP_BUCKET}/repo-src/${BUILD_NUMBER}"
+    OUTPUT_GCS_PATH  = "gs://${HADOOP_BUCKET}/output/lines-${BUILD_NUMBER}"
   }
- 
+
   stages {
     stage('Checkout') {
-      steps { checkout scm }
+      steps {
+        checkout scm
+      }
     }
 
     stage('Sonar Scan') {
@@ -53,79 +55,80 @@ spec:
         }
       }
     }
-   
+
     stage('Run Hadoop Line Count Job') {
-  steps {
-    container('gcloud') {
-      withCredentials([file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
-        sh '''
-          set -e
+      steps {
+        container('gcloud') {
+          withCredentials([file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+            sh '''
+              set -e
 
-          echo "Authenticating to GCP..."
-          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
-          gcloud config set project "$GCP_PROJECT"
+              echo "Authenticating to GCP..."
+              gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+              gcloud config set project "$GCP_PROJECT"
 
-          echo "Cleaning old GCS paths if they exist..."
-          gsutil -m rm -r "$REPO_GCS_PATH" || true
-          gsutil -m rm -r "$OUTPUT_GCS_PATH" || true
+              echo "Cleaning old GCS paths if they exist..."
+              gsutil -m rm -r "$REPO_GCS_PATH" || true
+              gsutil -m rm -r "$OUTPUT_GCS_PATH" || true
 
-          echo "Preparing flat input directory for Hadoop..."
-          WORK_DIR="repo_for_hadoop"
-          rm -rf "$WORK_DIR"
-          mkdir -p "$WORK_DIR"
+              echo "Preparing flat input directory for Hadoop..."
+              WORK_DIR="repo_for_hadoop"
+              rm -rf "$WORK_DIR"
+              mkdir -p "$WORK_DIR"
 
-          find . -type f ! -path "./.git/*" | while read f; do
-            rel="${f#./}"
-            safe_name=$(echo "$rel" | sed 's#/#__#g')
-            cp "$f" "$WORK_DIR/$safe_name"
-          done
+              find . -type f ! -path "./.git/*" | while read f; do
+                rel="${f#./}"
+                safe_name=$(echo "$rel" | sed 's#/#__#g')
+                cp "$f" "$WORK_DIR/$safe_name"
+              done
 
-          echo "Uploading prepared files to GCS..."
-          gsutil -m cp -r "$WORK_DIR" "$REPO_GCS_PATH"
+              echo "Uploading prepared files to GCS..."
+              gsutil -m cp -r "$WORK_DIR" "$REPO_GCS_PATH"
 
-          echo "Finding Dataproc master instance..."
-          MASTER_INSTANCE=$(gcloud compute instances list \
-            --filter="name ~ ^${DATAPROC_CLUSTER}-m AND zone:(${DATAPROC_ZONE})" \
-            --format='value(name)' | head -n 1)
+              echo "Finding Dataproc master instance..."
+              MASTER_INSTANCE=$(gcloud compute instances list \
+                --filter="name ~ ^${DATAPROC_CLUSTER}-m AND zone:(${DATAPROC_ZONE})" \
+                --format='value(name)' | head -n 1)
 
-          if [ -z "$MASTER_INSTANCE" ]; then
-            echo "ERROR: Could not find Dataproc master instance."
-            exit 1
-          fi
+              if [ -z "$MASTER_INSTANCE" ]; then
+                echo "ERROR: Could not find Dataproc master instance."
+                exit 1
+              fi
 
-          echo "Dataproc master instance: $MASTER_INSTANCE"
+              echo "Dataproc master instance: $MASTER_INSTANCE"
 
-          echo "Locating Hadoop streaming jar on Dataproc master..."
-          STREAMING_JAR=$(gcloud compute ssh "jenkins@$MASTER_INSTANCE" \
-            --zone "$DATAPROC_ZONE" \
-            --quiet \
-            --command='find /usr/lib -name "hadoop-streaming*.jar" 2>/dev/null | head -n 1' \
-            | tail -n 1 | tr -d '\\r')
+              echo "Locating Hadoop streaming jar on Dataproc master..."
+              STREAMING_JAR=$(gcloud compute ssh "jenkins@$MASTER_INSTANCE" \
+                --zone "$DATAPROC_ZONE" \
+                --quiet \
+                --command='find /usr/lib -name "hadoop-streaming*.jar" 2>/dev/null | head -n 1' \
+                | tail -n 1 | tr -d '\\r')
 
-          if [ -z "$STREAMING_JAR" ]; then
-            echo "ERROR: Could not find hadoop-streaming jar on Dataproc master."
-            exit 1
-          fi
+              if [ -z "$STREAMING_JAR" ]; then
+                echo "ERROR: Could not find hadoop-streaming jar on Dataproc master."
+                exit 1
+              fi
 
-          echo "Using streaming jar: $STREAMING_JAR"
+              echo "Using streaming jar: $STREAMING_JAR"
 
-          echo "Submitting Hadoop Streaming job..."
-          gcloud dataproc jobs submit hadoop \
-            --project "$GCP_PROJECT" \
-            --region "$DATAPROC_REGION" \
-            --cluster "$DATAPROC_CLUSTER" \
-            --files mapper.py,reducer.py \
-            --jar "file://$STREAMING_JAR" \
-            -- \
-            -mapper "python3 mapper.py" \
-            -reducer "python3 reducer.py" \
-            -input "$REPO_GCS_PATH/repo_for_hadoop" \
-            -output "$OUTPUT_GCS_PATH"
-        '''
+              echo "Submitting Hadoop Streaming job..."
+              gcloud dataproc jobs submit hadoop \
+                --project "$GCP_PROJECT" \
+                --region "$DATAPROC_REGION" \
+                --cluster "$DATAPROC_CLUSTER" \
+                --files mapper.py,reducer.py \
+                --jar "file://$STREAMING_JAR" \
+                -- \
+                -mapper "python3 mapper.py" \
+                -reducer "python3 reducer.py" \
+                -input "$REPO_GCS_PATH/repo_for_hadoop" \
+                -output "$OUTPUT_GCS_PATH"
+            '''
+          }
+        }
       }
     }
   }
-}
 
   post {
     success {
