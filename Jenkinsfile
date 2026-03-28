@@ -76,9 +76,14 @@ spec:
               rm -rf "$WORK_DIR"
               mkdir -p "$WORK_DIR"
 
-              find . -type f \
-                ! -path "./.git/*" \
-                \( -name "*.py" -o -name "*.java" -o -name "*.txt" -o -name "*.md" \) \
+              find . -type f ! -path "./.git/*" \
+                ! -name "*.pyc" \
+                ! -name "*.so" \
+                ! -name "*.png" \
+                ! -name "*.jpg" \
+                ! -name "*.jpeg" \
+                ! -name "*.gif" \
+                ! -name "*.pdf" \
               | while read f; do
                 rel="${f#./}"
                 safe_name=$(echo "$rel" | sed 's#/#__#g')
