@@ -25,6 +25,8 @@ spec:
     DATAPROC_REGION  = 'us-central1'
     DATAPROC_CLUSTER = 'hadoop-cluster'
     HADOOP_BUCKET    = 'teamproject-zhang-tong-bucket0'
+    REPO_GCS_PATH    = "gs://${HADOOP_BUCKET}/repo-src/${BUILD_NUMBER}"
+    OUTPUT_GCS_PATH  = "gs://${HADOOP_BUCKET}/output/lines-${BUILD_NUMBER}"
   }
  
   stages {
@@ -50,24 +52,35 @@ spec:
       }
     }
    
-    stage('Run Hadoop Job') {
+    stage('Run Hadoop Line Count Job') {
       steps {
         container('gcloud') {
           withCredentials([file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
             sh '''
+              set -e
+
               gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
               gcloud config set project "$GCP_PROJECT"
-              gcloud auth list
-              gcloud config list project
 
+              # Clean old path
+              gsutil -m rm -r "${REPO_GCS_PATH}" || true
+              gsutil -m rm -r "${OUTPUT_GCS_PATH}" || true
+
+              # Upload the repo to GCS
+              gsutil -m cp -r . "${REPO_GCS_PATH}"
+
+              # Submit Hadoop Streaming task
               gcloud dataproc jobs submit hadoop \
                 --project "$GCP_PROJECT" \
                 --region "$DATAPROC_REGION" \
                 --cluster "$DATAPROC_CLUSTER" \
-                --jar file:///usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar \
-                -- wordcount \
-                gs://${HADOOP_BUCKET}/input/input.txt \
-                gs://${HADOOP_BUCKET}/output/wordcount-${BUILD_NUMBER}
+                --files mapper.py,reducer.py \
+                --jar file:///usr/lib/hadoop-mapreduce/hadoop-streaming.jar \
+                -- \
+                -mapper "python3 mapper.py" \
+                -reducer "python3 reducer.py" \
+                -input "${REPO_GCS_PATH}" \
+                -output "${OUTPUT_GCS_PATH}"
             '''
           }
         }
