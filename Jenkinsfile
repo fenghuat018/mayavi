@@ -23,10 +23,12 @@ spec:
   environment {
     GCP_PROJECT      = 'teamproject-zhang-tong'
     DATAPROC_REGION  = 'us-central1'
+    DATAPROC_ZONE    = 'us-central1-a'
     DATAPROC_CLUSTER = 'hadoop-cluster'
     HADOOP_BUCKET    = 'teamproject-zhang-tong-bucket0'
-    REPO_GCS_PATH    = "gs://${HADOOP_BUCKET}/repo-src/${BUILD_NUMBER}"
-    OUTPUT_GCS_PATH  = "gs://${HADOOP_BUCKET}/output/lines-${BUILD_NUMBER}"
+
+    REPO_GCS_PATH   = "gs://${HADOOP_BUCKET}/repo-src/${BUILD_NUMBER}"
+    OUTPUT_GCS_PATH = "gs://${HADOOP_BUCKET}/output/lines-${BUILD_NUMBER}"
   }
  
   stages {
@@ -59,23 +61,49 @@ spec:
             sh '''
               set -e
 
+              echo "Authenticating to GCP..."
               gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
               gcloud config set project "$GCP_PROJECT"
 
-              # Clean old path
+              echo "Cleaning old GCS paths if they exist..."
               gsutil -m rm -r "${REPO_GCS_PATH}" || true
               gsutil -m rm -r "${OUTPUT_GCS_PATH}" || true
 
-              # Upload the repo to GCS
+              echo "Uploading repository to GCS..."
               gsutil -m cp -r . "${REPO_GCS_PATH}"
 
-              # Submit Hadoop Streaming task
+              echo "Finding Dataproc master instance..."
+              MASTER_INSTANCE=$(gcloud compute instances list \
+                --filter="name ~ ^${DATAPROC_CLUSTER}-m AND zone:(${DATAPROC_ZONE})" \
+                --format='value(name)' | head -n 1)
+
+              if [ -z "$MASTER_INSTANCE" ]; then
+                echo "ERROR: Could not find Dataproc master instance."
+                exit 1
+              fi
+
+              echo "Dataproc master instance: $MASTER_INSTANCE"
+
+              echo "Locating Hadoop streaming jar on Dataproc master..."
+              STREAMING_JAR=$(gcloud compute ssh "$MASTER_INSTANCE" \
+                --zone "$DATAPROC_ZONE" \
+                --quiet \
+                --command='find /usr/lib -name "hadoop-streaming*.jar" 2>/dev/null | head -n 1')
+
+              if [ -z "$STREAMING_JAR" ]; then
+                echo "ERROR: Could not find hadoop-streaming jar on Dataproc master."
+                exit 1
+              fi
+
+              echo "Using streaming jar: $STREAMING_JAR"
+
+              echo "Submitting Hadoop Streaming job..."
               gcloud dataproc jobs submit hadoop \
                 --project "$GCP_PROJECT" \
                 --region "$DATAPROC_REGION" \
                 --cluster "$DATAPROC_CLUSTER" \
                 --files mapper.py,reducer.py \
-                --jar file:///usr/lib/hadoop-mapreduce/hadoop-streaming-*.jar
+                --jar "file://$STREAMING_JAR" \
                 -- \
                 -mapper "python3 mapper.py" \
                 -reducer "python3 reducer.py" \
@@ -85,6 +113,16 @@ spec:
           }
         }
       }
+    }
+  }
+
+  post {
+    success {
+      echo "Pipeline completed successfully."
+      echo "Hadoop output path: ${OUTPUT_GCS_PATH}"
+    }
+    failure {
+      echo "Pipeline failed."
     }
   }
 }
