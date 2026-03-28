@@ -121,7 +121,7 @@ spec:
                 -- \
                 -mapper "python3 mapper.py" \
                 -reducer "python3 reducer.py" \
-                -input "$REPO_GCS_PATH/repo_for_hadoop" \
+                -input "$REPO_GCS_PATH" \
                 -output "$OUTPUT_GCS_PATH"
             '''
           }
