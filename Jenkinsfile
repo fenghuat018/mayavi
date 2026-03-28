@@ -19,9 +19,6 @@ spec:
 """
     }
   }
- options {
-    timestamps()
-  }
 
   environment {
     GCP_PROJECT      = 'teamproject-zhang-tong'
