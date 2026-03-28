@@ -2,6 +2,8 @@
 # Copyright (c) 2008, Enthought, Inc.
 # License: BSD Style.
 
+# modified for jenkins test
+
 # Standard library imports.
 from vtk.numpy_interface import dataset_adapter as dsa
 
