@@ -9,7 +9,6 @@ filename = (
 )
 
 base = filename.split("/")[-1]
-
 display_name = base.replace("__", "/")
 
 count = 0
@@ -18,7 +17,6 @@ try:
     for line in sys.stdin:
         count += 1
 except Exception:
-    # pass binary or garbled text
     pass
 
 print(f"{display_name}\t{count}")
