@@ -76,7 +76,10 @@ spec:
               rm -rf "$WORK_DIR"
               mkdir -p "$WORK_DIR"
 
-              find . -type f ! -path "./.git/*" | while read f; do
+              find . -type f \
+                ! -path "./.git/*" \
+                \( -name "*.py" -o -name "*.java" -o -name "*.txt" -o -name "*.md" \) \
+              | while read f; do
                 rel="${f#./}"
                 safe_name=$(echo "$rel" | sed 's#/#__#g')
                 cp "$f" "$WORK_DIR/$safe_name"
