@@ -75,7 +75,7 @@ spec:
                 --region "$DATAPROC_REGION" \
                 --cluster "$DATAPROC_CLUSTER" \
                 --files mapper.py,reducer.py \
-                --jar file:///usr/lib/hadoop-mapreduce/hadoop-streaming.jar \
+                --jar file:///usr/lib/hadoop-mapreduce/hadoop-streaming-*.jar
                 -- \
                 -mapper "python3 mapper.py" \
                 -reducer "python3 reducer.py" \
