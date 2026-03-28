@@ -88,7 +88,8 @@ spec:
               STREAMING_JAR=$(gcloud compute ssh "jenkins@$MASTER_INSTANCE" \
                 --zone "$DATAPROC_ZONE" \
                 --quiet \
-                --command='find /usr/lib -name "hadoop-streaming*.jar" 2>/dev/null | head -n 1')
+                --command='find /usr/lib -name "hadoop-streaming*.jar" 2>/dev/null | head -n 1' \
+               | tail -n 1)
 
               if [ -z "$STREAMING_JAR" ]; then
                 echo "ERROR: Could not find hadoop-streaming jar on Dataproc master."
