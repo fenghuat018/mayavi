@@ -90,6 +90,8 @@ spec:
                 cp "$f" "$WORK_DIR/$safe_name"
               done
 
+              sed -i 's/\r$//' mapper.py reducer.py
+              
               echo "Uploading prepared files to GCS..."
               gsutil -m cp -r "$WORK_DIR" "$REPO_GCS_PATH"
 
