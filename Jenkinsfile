@@ -58,59 +58,49 @@ spec:
       steps {
         container('gcloud') {
           withCredentials([file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
-            sh '''
-              set -e
+            set -e
 
-              echo "Authenticating to GCP..."
-              gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
-              gcloud config set project "$GCP_PROJECT"
-
-              echo "Cleaning old GCS paths if they exist..."
-              gsutil -m rm -r "${REPO_GCS_PATH}" || true
-              gsutil -m rm -r "${OUTPUT_GCS_PATH}" || true
-
-              echo "Uploading repository to GCS..."
-              gsutil -m cp -r . "${REPO_GCS_PATH}"
-
-              echo "Finding Dataproc master instance..."
-              MASTER_INSTANCE=$(gcloud compute instances list \
-                --filter="name ~ ^${DATAPROC_CLUSTER}-m AND zone:(${DATAPROC_ZONE})" \
-                --format='value(name)' | head -n 1)
-
-              if [ -z "$MASTER_INSTANCE" ]; then
-                echo "ERROR: Could not find Dataproc master instance."
-                exit 1
-              fi
-
-              echo "Dataproc master instance: $MASTER_INSTANCE"
-
-              echo "Locating Hadoop streaming jar on Dataproc master..."
-              STREAMING_JAR=$(gcloud compute ssh "jenkins@$MASTER_INSTANCE" \
-                --zone "$DATAPROC_ZONE" \
-                --quiet \
-                --command='find /usr/lib -name "hadoop-streaming*.jar" 2>/dev/null | head -n 1' \
-               | tail -n 1)
-
-              if [ -z "$STREAMING_JAR" ]; then
-                echo "ERROR: Could not find hadoop-streaming jar on Dataproc master."
-                exit 1
-              fi
-
-              echo "Using streaming jar: $STREAMING_JAR"
-
-              echo "Submitting Hadoop Streaming job..."
-              gcloud dataproc jobs submit hadoop \
-                --project "$GCP_PROJECT" \
-                --region "$DATAPROC_REGION" \
-                --cluster "$DATAPROC_CLUSTER" \
-                --files mapper.py,reducer.py \
-                --jar "file://$STREAMING_JAR" \
-                -- \
-                -mapper "python3 mapper.py" \
-                -reducer "python3 reducer.py" \
-                -input "${REPO_GCS_PATH}" \
-                -output "${OUTPUT_GCS_PATH}"
-            '''
+            gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+            gcloud config set project "$GCP_PROJECT"
+            
+            gsutil -m rm -r "${REPO_GCS_PATH}" || true
+            gsutil -m rm -r "${OUTPUT_GCS_PATH}" || true
+            
+            WORK_DIR="repo_for_hadoop"
+            rm -rf "$WORK_DIR"
+            mkdir -p "$WORK_DIR"
+            
+            find . -type f ! -path "./.git/*" | while read f; do
+              rel="${f#./}"
+              safe_name=$(echo "$rel" | sed 's#/#__#g')
+              cp "$f" "$WORK_DIR/$safe_name"
+            done
+            
+            gsutil -m cp -r "$WORK_DIR" "${REPO_GCS_PATH}"
+            
+            MASTER_INSTANCE=$(gcloud compute instances list \
+              --filter="name ~ ^${DATAPROC_CLUSTER}-m AND zone:(${DATAPROC_ZONE})" \
+              --format='value(name)' | head -n 1)
+            
+            STREAMING_JAR=$(gcloud compute ssh "jenkins@$MASTER_INSTANCE" \
+              --zone "$DATAPROC_ZONE" \
+              --quiet \
+              --command='find /usr/lib -name "hadoop-streaming*.jar" 2>/dev/null | head -n 1' \
+              | tail -n 1 | tr -d '\r')
+            
+            echo "Using streaming jar: $STREAMING_JAR"
+            
+            gcloud dataproc jobs submit hadoop \
+              --project "$GCP_PROJECT" \
+              --region "$DATAPROC_REGION" \
+              --cluster "$DATAPROC_CLUSTER" \
+              --files mapper.py,reducer.py \
+              --jar "file://$STREAMING_JAR" \
+              -- \
+              -mapper "python3 mapper.py" \
+              -reducer "python3 reducer.py" \
+              -input "${REPO_GCS_PATH}/repo_for_hadoop" \
+              -output "${OUTPUT_GCS_PATH}"
           }
         }
       }
