@@ -76,18 +76,19 @@ spec:
               rm -rf "$WORK_DIR"
               mkdir -p "$WORK_DIR"
 
-              find . -type f ! -path "./.git/*" \
-                ! -name "*.pyc" \
-                ! -name "*.so" \
-                ! -name "*.png" \
-                ! -name "*.jpg" \
-                ! -name "*.jpeg" \
-                ! -name "*.gif" \
-                ! -name "*.pdf" \
-              | while read f; do
-                rel="${f#./}"
-                safe_name=$(echo "$rel" | sed 's#/#__#g')
-                cp "$f" "$WORK_DIR/$safe_name"
+              find . -type f ! -path "./.git/*" | while read f; do
+                mime=$(file -b --mime-type "$f" || true)
+              
+                case "$mime" in
+                  text/*|application/json|application/xml)
+                    rel="${f#./}"
+                    safe_name=$(echo "$rel" | sed 's#/#__#g')
+                    cp "$f" "$WORK_DIR/$safe_name"
+                    ;;
+                  *)
+                    echo "Skipping non-text file: $f ($mime)"
+                    ;;
+                esac
               done
 
               sed -i 's/\r$//' mapper.py reducer.py
