@@ -98,18 +98,42 @@ spec:
               echo "Using streaming jar: $STREAMING_JAR"
               echo "Hadoop input path: gs://teamproject-zhang-tong-bucket0/repo-src/23"
               echo "Hadoop output path: $OUTPUT_GCS_PATH"
+
+              echo "Creating debug_mapper.sh..."
+
+              cat > debug_mapper.sh <<'EOF'
+              #!/bin/sh
+              set -eu
+              
+              echo "DEBUG: shell started" >&2
+              echo "DEBUG: pwd=$(pwd)" >&2
+              
+              echo "DEBUG: ls -l current dir:" >&2
+              ls -l >&2 || true
+              
+              echo "DEBUG: python3 path:" >&2
+              command -v python3 >&2 || true
+              
+              echo "DEBUG: python3 version:" >&2
+              python3 --version >&2 || true
+              
+              echo "DEBUG: trying to run mapper.py..." >&2
+              exec python3 mapper.py
+              EOF
+              
+              chmod +x debug_mapper.sh
+              sed -i 's/\r$//' debug_mapper.sh mapper.py reducer.py || true
     
               echo "Submitting minimal Hadoop Streaming job..."
-              gcloud dataproc jobs submit hadoop \
+             gcloud dataproc jobs submit hadoop \
                 --project "$GCP_PROJECT" \
                 --region "$DATAPROC_REGION" \
                 --cluster "$DATAPROC_CLUSTER" \
-                --files "$WORKSPACE/mapper.py#mapper.py,$WORKSPACE/reducer.py#reducer.py" \
+                --files "$WORKSPACE/mapper.py,$WORKSPACE/reducer.py,$WORKSPACE/debug_mapper.sh" \
                 --jar "file://$STREAMING_JAR" \
                 -- \
-                -cmdenv "PATH=/usr/bin:/bin:/usr/local/bin" \
-                -mapper "python3 ./mapper.py" \
-                -reducer "python3 ./reducer.py" \
+                -mapper "sh debug_mapper.sh" \
+                -reducer "python3 reducer.py" \
                 -input "gs://teamproject-zhang-tong-bucket0/repo-src/23" \
                 -output "$OUTPUT_GCS_PATH"
             '''
