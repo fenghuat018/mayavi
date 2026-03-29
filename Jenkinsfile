@@ -134,7 +134,7 @@ spec:
                 -- \
                 -mapper "/usr/bin/python3 mapper.py" \
                 -reducer "/usr/bin/python3 reducer.py" \
-                -input "$REPO_GCS_PATH" \
+                -input "gs://teamproject-zhang-tong-bucket0/repo-src/23" \
                 -output "$OUTPUT_GCS_PATH"
             '''
           }
