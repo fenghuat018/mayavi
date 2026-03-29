@@ -68,8 +68,8 @@ spec:
               gcloud config set project "$GCP_PROJECT"
 
               echo "Cleaning old GCS paths if they exist..."
-              gsutil -m rm -r "$REPO_GCS_PATH" || true
-              gsutil -m rm -r "$OUTPUT_GCS_PATH" || true
+              gcloud storage rm -r "$REPO_GCS_PATH" || true
+              gcloud storage rm -r "$OUTPUT_GCS_PATH" || true
 
               echo "Preparing flat input directory for Hadoop..."
               WORK_DIR="repo_for_hadoop"
@@ -95,7 +95,7 @@ spec:
               sed -i 's/\r$//' mapper.py reducer.py || true
               
               echo "Uploading prepared files to GCS..."
-              gsutil -m cp -r "$WORK_DIR" "$REPO_GCS_PATH"
+              gcloud storage cp --recursive "$WORK_DIR" "$REPO_GCS_PATH"
 
               echo "Finding Dataproc master instance..."
               MASTER_INSTANCE=$(gcloud compute instances list \
