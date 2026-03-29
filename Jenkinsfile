@@ -61,7 +61,7 @@ spec:
         container('gcloud') {
           withCredentials([file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
             sh '''
-              set -euxo pipefail
+              set -eu
     
               echo "Authenticating to GCP..."
               gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
@@ -116,6 +116,8 @@ spec:
         }
       }
     }
+
+    
 
     
   }
