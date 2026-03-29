@@ -104,7 +104,7 @@ spec:
                 --project "$GCP_PROJECT" \
                 --region "$DATAPROC_REGION" \
                 --cluster "$DATAPROC_CLUSTER" \
-                --files "$WORKSPACE/mapper.py,$WORKSPACE/reducer.py"
+                --files "$WORKSPACE/mapper.py,$WORKSPACE/reducer.py" \
                 --jar "file://$STREAMING_JAR" \
                 -- \
                 -mapper "/usr/bin/env python3 mapper.py" \
