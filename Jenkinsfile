@@ -98,6 +98,10 @@ spec:
               echo "Hadoop output path: $OUTPUT_GCS_PATH"
     
               echo "Submitting Hadoop Streaming job..."
+              echo "--- run_mapper.sh debug ---"
+              ls -l run_mapper.sh
+              sed -n '1,20p' run_mapper.sh
+              sed -i 's/\r$//' mapper.py reducer.py run_mapper.sh || true
               chmod +x run_mapper.sh || true
               
               gcloud dataproc jobs submit hadoop \
@@ -107,7 +111,7 @@ spec:
                 --files mapper.py,reducer.py,run_mapper.sh \
                 --jar "file://$STREAMING_JAR" \
                 -- \
-                -mapper "./run_mapper.sh" \
+                -mapper "sh run_mapper.sh" \
                 -reducer "/usr/bin/python3 reducer.py" \
                 -input "gs://teamproject-zhang-tong-bucket0/repo-src/23" \
                 -output "$OUTPUT_GCS_PATH"
