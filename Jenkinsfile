@@ -63,28 +63,46 @@ spec:
             sh '''
               set -eu
     
-              echo "Authenticating to GCP..."
+              # Authenticate with GCP
               gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
               gcloud config set project "$GCP_PROJECT"
     
-              # Check grammar
+              # Normalize line endings and check syntax
               sed -i 's/\\r$//' mapper.py reducer.py || true
               python3 -m py_compile mapper.py
               python3 -m py_compile reducer.py
     
               STREAMING_JAR="/usr/lib/hadoop/hadoop-streaming.jar"
     
-              # avoid overlaping
+              # Directory for flattened repo files
+              WORK_DIR="repo_for_hadoop"
+              rm -rf "$WORK_DIR"
+              mkdir -p "$WORK_DIR"
+    
+              # Clean GCS input/output paths for this build
+              gcloud storage rm -r "$REPO_GCS_PATH" || true
+              gcloud storage rm -r "$OUTPUT_GCS_PATH" || true
+    
+              # Flatten repo files (remove directory hierarchy)
+              find . -type f ! -path "./.git/*" | while read -r f; do
+                case "$f" in
+                  *.py|*.txt|*.md|*.rst|*.cfg|*.ini|*.toml|*.yml|*.yaml|*.json|*.xml|*.sh|*.properties)
+                    rel="${f#./}"
+                    safe_name=$(printf "%s" "$rel" | sed 's#/#__#g')
+                    cp "$f" "$WORK_DIR/$safe_name"
+                    ;;
+                esac
+              done
+    
+              # Upload flattened repo as Hadoop input
+              gcloud storage cp --recursive "$WORK_DIR" "$REPO_GCS_PATH"
+    
+              # Upload mapper and reducer scripts
               SCRIPT_GCS_DIR="gs://${HADOOP_BUCKET}/hadoop-scripts/${BUILD_NUMBER}"
+              gcloud storage cp mapper.py "${SCRIPT_GCS_DIR}/mapper.py"
+              gcloud storage cp reducer.py "${SCRIPT_GCS_DIR}/reducer.py"
     
-              echo "Uploading scripts to: $SCRIPT_GCS_DIR"
-              gsutil cp mapper.py "${SCRIPT_GCS_DIR}/mapper.py"
-              gsutil cp reducer.py "${SCRIPT_GCS_DIR}/reducer.py"
-    
-              echo "Submitting Dataproc job..."
-              echo "Input:  $REPO_GCS_PATH"
-              echo "Output: $OUTPUT_GCS_PATH"
-    
+              # Submit Hadoop Streaming job
               gcloud dataproc jobs submit hadoop \
                 --project "$GCP_PROJECT" \
                 --region "$DATAPROC_REGION" \
