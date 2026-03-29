@@ -69,38 +69,12 @@ spec:
     
               echo "=== workspace debug info ==="
               pwd
-              ls -l
               ls -l mapper.py reducer.py
     
-              echo "--- python versions ---"
-              python3 --version || true
-              /usr/bin/python3 --version || true
-              which python3 || true
-    
-              echo "--- sha256 ---"
-              sha256sum mapper.py reducer.py || true
-    
-              echo "--- mapper.py first 40 lines ---"
-              sed -n '1,40p' mapper.py
-    
-              echo "--- reducer.py first 40 lines ---"
-              sed -n '1,40p' reducer.py
-    
               echo "--- normalize line endings ---"
-              sed -i 's/\r$//' mapper.py reducer.py || true
+              sed -i 's/\\r$//' mapper.py reducer.py || true
     
-              echo "--- python compile check ---"
-              python3 -m py_compile mapper.py
-              python3 -m py_compile reducer.py
-    
-              STREAMING_JAR="/usr/lib/hadoop/hadoop-streaming.jar"
-    
-              echo "Using streaming jar: $STREAMING_JAR"
-              echo "Hadoop input path: gs://teamproject-zhang-tong-bucket0/repo-src/23"
-              echo "Hadoop output path: $OUTPUT_GCS_PATH"
-
-              echo "Creating debug_mapper.sh..."
-
+              echo "--- create debug_mapper.sh ---"
               cat > debug_mapper.sh <<'EOF'
 #!/bin/sh
 set -eu
@@ -114,16 +88,24 @@ python3 --version >&2 || true
 echo "DEBUG: running mapper..." >&2
 exec python3 mapper.py
 EOF
-              
-              chmod +x debug_mapper.sh
-              sed -i 's/\r$//' debug_mapper.sh mapper.py reducer.py || true
     
-              echo "Submitting minimal Hadoop Streaming job..."
-             gcloud dataproc jobs submit hadoop \
+              chmod +x debug_mapper.sh
+              sed -i 's/\\r$//' debug_mapper.sh || true
+    
+              echo "--- upload scripts to GCS ---"
+              gsutil cp mapper.py gs://teamproject-zhang-tong-bucket0/debug/mapper.py
+              gsutil cp reducer.py gs://teamproject-zhang-tong-bucket0/debug/reducer.py
+              gsutil cp debug_mapper.sh gs://teamproject-zhang-tong-bucket0/debug/debug_mapper.sh
+    
+              STREAMING_JAR="/usr/lib/hadoop/hadoop-streaming.jar"
+    
+              echo "Submitting Hadoop Streaming job..."
+    
+              gcloud dataproc jobs submit hadoop \
                 --project "$GCP_PROJECT" \
                 --region "$DATAPROC_REGION" \
                 --cluster "$DATAPROC_CLUSTER" \
-                --files "$WORKSPACE/mapper.py,$WORKSPACE/reducer.py,$WORKSPACE/debug_mapper.sh" \
+                --files "gs://teamproject-zhang-tong-bucket0/debug/mapper.py,gs://teamproject-zhang-tong-bucket0/debug/reducer.py,gs://teamproject-zhang-tong-bucket0/debug/debug_mapper.sh" \
                 --jar "file://$STREAMING_JAR" \
                 -- \
                 -mapper "sh debug_mapper.sh" \
@@ -135,8 +117,6 @@ EOF
         }
       }
     }
-
-    
 
     
   }
