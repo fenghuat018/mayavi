@@ -98,6 +98,8 @@ spec:
               echo "Hadoop output path: $OUTPUT_GCS_PATH"
     
               echo "Submitting Hadoop Streaming job..."
+              chmod +x run_mapper.sh || true
+              
               gcloud dataproc jobs submit hadoop \
                 --project "$GCP_PROJECT" \
                 --region "$DATAPROC_REGION" \
