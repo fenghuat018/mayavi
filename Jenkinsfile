@@ -61,19 +61,21 @@ spec:
         container('gcloud') {
           withCredentials([file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
             sh '''
-              set -e
+              set -euxo pipefail
     
               echo "Authenticating to GCP..."
               gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
               gcloud config set project "$GCP_PROJECT"
     
-              echo "=== mapper/reducer debug info ==="
+              echo "=== workspace debug info ==="
               pwd
+              ls -l
               ls -l mapper.py reducer.py
     
               echo "--- python versions ---"
               python3 --version || true
               /usr/bin/python3 --version || true
+              which python3 || true
     
               echo "--- sha256 ---"
               sha256sum mapper.py reducer.py || true
@@ -97,22 +99,16 @@ spec:
               echo "Hadoop input path: gs://teamproject-zhang-tong-bucket0/repo-src/23"
               echo "Hadoop output path: $OUTPUT_GCS_PATH"
     
-              echo "Submitting Hadoop Streaming job..."
-              echo "--- run_mapper.sh debug ---"
-              ls -l run_mapper.sh
-              sed -n '1,20p' run_mapper.sh
-              sed -i 's/\r$//' mapper.py reducer.py run_mapper.sh || true
-              chmod +x run_mapper.sh || true
-              
+              echo "Submitting minimal Hadoop Streaming job..."
               gcloud dataproc jobs submit hadoop \
                 --project "$GCP_PROJECT" \
                 --region "$DATAPROC_REGION" \
                 --cluster "$DATAPROC_CLUSTER" \
-                --files mapper.py,reducer.py,run_mapper.sh \
+                --files "$WORKSPACE/mapper.py,$WORKSPACE/reducer.py" \
                 --jar "file://$STREAMING_JAR" \
                 -- \
-                -mapper "sh run_mapper.sh" \
-                -reducer "/usr/bin/python3 reducer.py" \
+                -mapper "python3 mapper.py" \
+                -reducer "python3 reducer.py" \
                 -input "gs://teamproject-zhang-tong-bucket0/repo-src/23" \
                 -output "$OUTPUT_GCS_PATH"
             '''
