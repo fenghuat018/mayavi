@@ -102,24 +102,18 @@ spec:
               echo "Creating debug_mapper.sh..."
 
               cat > debug_mapper.sh <<'EOF'
-              #!/bin/sh
-              set -eu
-              
-              echo "DEBUG: shell started" >&2
-              echo "DEBUG: pwd=$(pwd)" >&2
-              
-              echo "DEBUG: ls -l current dir:" >&2
-              ls -l >&2 || true
-              
-              echo "DEBUG: python3 path:" >&2
-              command -v python3 >&2 || true
-              
-              echo "DEBUG: python3 version:" >&2
-              python3 --version >&2 || true
-              
-              echo "DEBUG: trying to run mapper.py..." >&2
-              exec python3 mapper.py
-              EOF
+#!/bin/sh
+set -eu
+echo "DEBUG: shell started" >&2
+echo "DEBUG: pwd=$(pwd)" >&2
+echo "DEBUG: ls -l:" >&2
+ls -l >&2 || true
+echo "DEBUG: which python3=$(command -v python3 || true)" >&2
+echo "DEBUG: python3 version:" >&2
+python3 --version >&2 || true
+echo "DEBUG: running mapper..." >&2
+exec python3 mapper.py
+EOF
               
               chmod +x debug_mapper.sh
               sed -i 's/\r$//' debug_mapper.sh mapper.py reducer.py || true
