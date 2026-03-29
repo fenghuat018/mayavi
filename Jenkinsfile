@@ -107,7 +107,7 @@ spec:
                 --files "$WORKSPACE/mapper.py,$WORKSPACE/reducer.py" \
                 --jar "file://$STREAMING_JAR" \
                 -- \
-                -mapper "/usr/bin/env python3 mapper.py" \
+                -mapper "python3 mapper.py" \
                 -reducer "python3 reducer.py" \
                 -input "gs://teamproject-zhang-tong-bucket0/repo-src/23" \
                 -output "$OUTPUT_GCS_PATH"
