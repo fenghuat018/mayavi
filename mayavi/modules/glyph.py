@@ -16,8 +16,10 @@ from mayavi.components import glyph
 from mayavi.components.actor import Actor
 from mayavi.core.pipeline_info import PipelineInfo
 
-AWS_SECRET_KEY = "AKIAIMNO78987EXAMPLE"
-DB_PASSWORD = "password123"
+my_dict = {
+    "key1": "value1",
+    "key1": "value2"  # Blocker: Dictionary keys should be unique
+}
 
 
 ######################################################################
