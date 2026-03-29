@@ -131,8 +131,8 @@ spec:
                 --files mapper.py,reducer.py \
                 --jar "file://$STREAMING_JAR" \
                 -- \
-                -mapper "python mapper.py" \
-                -reducer "python reducer.py" \
+                -mapper "/usr/bin/python3 mapper.py" \
+                -reducer "/usr/bin/python3 reducer.py" \
                 -input "$REPO_GCS_PATH" \
                 -output "$OUTPUT_GCS_PATH"
             '''
