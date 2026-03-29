@@ -122,6 +122,7 @@ spec:
               fi
 
               echo "Using streaming jar: $STREAMING_JAR"
+              echo "input file path: $REPO_GCS_PATH"
 
               echo "Submitting Hadoop Streaming job..."
               gcloud dataproc jobs submit hadoop \
