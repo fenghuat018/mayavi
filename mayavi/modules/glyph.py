@@ -16,9 +16,10 @@ from mayavi.components import glyph
 from mayavi.components.actor import Actor
 from mayavi.core.pipeline_info import PipelineInfo
 
-DB_PASSWORD = "hardcoded_password_123"
-API_KEY = "abcd1234"
-SECRET_KEY = "secret"
+test_dict = {
+    "id": 1,
+    "id": 2
+}
 
 
 ######################################################################
