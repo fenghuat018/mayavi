@@ -75,23 +75,24 @@ spec:
               WORK_DIR="repo_for_hadoop"
               rm -rf "$WORK_DIR"
               mkdir -p "$WORK_DIR"
-
-              find . -type f ! -path "./.git/*" | while read f; do
-                mime=$(file -b --mime-type "$f" || true)
               
-                case "$mime" in
-                  text/*|application/json|application/xml)
+              find . -type f ! -path "./.git/*" | while read f; do
+                case "$f" in
+                  *.py|*.txt|*.md|*.rst|*.cfg|*.ini|*.toml|*.yml|*.yaml|*.json|*.xml|*.sh|*.properties)
                     rel="${f#./}"
                     safe_name=$(echo "$rel" | sed 's#/#__#g')
                     cp "$f" "$WORK_DIR/$safe_name"
                     ;;
                   *)
-                    echo "Skipping non-text file: $f ($mime)"
+                    echo "Skipping non-text file: $f"
                     ;;
                 esac
               done
-
-              sed -i 's/\r$//' mapper.py reducer.py
+              
+              echo "Prepared Hadoop input file count:"
+              find "$WORK_DIR" -type f | wc -l
+              
+              sed -i 's/\r$//' mapper.py reducer.py || true
               
               echo "Uploading prepared files to GCS..."
               gsutil -m cp -r "$WORK_DIR" "$REPO_GCS_PATH"
