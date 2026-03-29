@@ -67,57 +67,40 @@ spec:
               gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
               gcloud config set project "$GCP_PROJECT"
     
-              echo "=== workspace debug info ==="
-              pwd
-              ls -l mapper.py reducer.py
-    
-              echo "--- normalize line endings ---"
+              # Check grammar
               sed -i 's/\\r$//' mapper.py reducer.py || true
-    
-              echo "--- create debug_mapper.sh ---"
-              cat > debug_mapper.sh <<'EOF'
-#!/bin/sh
-set -eu
-echo "DEBUG: shell started" >&2
-echo "DEBUG: pwd=$(pwd)" >&2
-echo "DEBUG: ls -l:" >&2
-ls -l >&2 || true
-echo "DEBUG: which python3=$(command -v python3 || true)" >&2
-echo "DEBUG: python3 version:" >&2
-python3 --version >&2 || true
-echo "DEBUG: running mapper..." >&2
-exec python3 mapper.py
-EOF
-    
-              chmod +x debug_mapper.sh
-              sed -i 's/\\r$//' debug_mapper.sh || true
-    
-              echo "--- upload scripts to GCS ---"
-              gsutil cp mapper.py gs://teamproject-zhang-tong-bucket0/debug/mapper.py
-              gsutil cp reducer.py gs://teamproject-zhang-tong-bucket0/debug/reducer.py
-              gsutil cp debug_mapper.sh gs://teamproject-zhang-tong-bucket0/debug/debug_mapper.sh
+              python3 -m py_compile mapper.py
+              python3 -m py_compile reducer.py
     
               STREAMING_JAR="/usr/lib/hadoop/hadoop-streaming.jar"
     
-              echo "Submitting Hadoop Streaming job..."
+              # avoid overlaping
+              SCRIPT_GCS_DIR="gs://${HADOOP_BUCKET}/hadoop-scripts/${BUILD_NUMBER}"
+    
+              echo "Uploading scripts to: $SCRIPT_GCS_DIR"
+              gsutil cp mapper.py "${SCRIPT_GCS_DIR}/mapper.py"
+              gsutil cp reducer.py "${SCRIPT_GCS_DIR}/reducer.py"
+    
+              echo "Submitting Dataproc job..."
+              echo "Input:  $REPO_GCS_PATH"
+              echo "Output: $OUTPUT_GCS_PATH"
     
               gcloud dataproc jobs submit hadoop \
                 --project "$GCP_PROJECT" \
                 --region "$DATAPROC_REGION" \
                 --cluster "$DATAPROC_CLUSTER" \
-                --files "gs://teamproject-zhang-tong-bucket0/debug/mapper.py,gs://teamproject-zhang-tong-bucket0/debug/reducer.py,gs://teamproject-zhang-tong-bucket0/debug/debug_mapper.sh" \
+                --files "${SCRIPT_GCS_DIR}/mapper.py,${SCRIPT_GCS_DIR}/reducer.py" \
                 --jar "file://$STREAMING_JAR" \
                 -- \
-                -mapper "sh debug_mapper.sh" \
+                -mapper "python3 mapper.py" \
                 -reducer "python3 reducer.py" \
-                -input "gs://teamproject-zhang-tong-bucket0/repo-src/23" \
+                -input "$REPO_GCS_PATH" \
                 -output "$OUTPUT_GCS_PATH"
             '''
           }
         }
       }
     }
-
     
   }
 
