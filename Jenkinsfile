@@ -102,10 +102,10 @@ spec:
                 --project "$GCP_PROJECT" \
                 --region "$DATAPROC_REGION" \
                 --cluster "$DATAPROC_CLUSTER" \
-                --files mapper.py,reducer.py \
+                --files mapper.py,reducer.py,run_mapper.sh \
                 --jar "file://$STREAMING_JAR" \
                 -- \
-                -mapper "/usr/bin/python3 mapper.py" \
+                -mapper "./run_mapper.sh" \
                 -reducer "/usr/bin/python3 reducer.py" \
                 -input "gs://teamproject-zhang-tong-bucket0/repo-src/23" \
                 -output "$OUTPUT_GCS_PATH"
