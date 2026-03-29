@@ -62,68 +62,41 @@ spec:
           withCredentials([file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
             sh '''
               set -e
-
+    
               echo "Authenticating to GCP..."
               gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
               gcloud config set project "$GCP_PROJECT"
-
-              echo "Cleaning old GCS paths if they exist..."
-              gcloud storage rm -r "$REPO_GCS_PATH" || true
-              gcloud storage rm -r "$OUTPUT_GCS_PATH" || true
-
-              echo "Preparing flat input directory for Hadoop..."
-              WORK_DIR="repo_for_hadoop"
-              rm -rf "$WORK_DIR"
-              mkdir -p "$WORK_DIR"
-              
-              find . -type f ! -path "./.git/*" | while read f; do
-                case "$f" in
-                  *.py|*.txt|*.md|*.rst|*.cfg|*.ini|*.toml|*.yml|*.yaml|*.json|*.xml|*.sh|*.properties)
-                    rel="${f#./}"
-                    safe_name=$(echo "$rel" | sed 's#/#__#g')
-                    cp "$f" "$WORK_DIR/$safe_name"
-                    ;;
-                  *)
-                    echo "Skipping non-text file: $f"
-                    ;;
-                esac
-              done
-              
-              echo "Prepared Hadoop input file count:"
-              find "$WORK_DIR" -type f | wc -l
-              
+    
+              echo "=== mapper/reducer debug info ==="
+              pwd
+              ls -l mapper.py reducer.py
+    
+              echo "--- python versions ---"
+              python3 --version || true
+              /usr/bin/python3 --version || true
+    
+              echo "--- sha256 ---"
+              sha256sum mapper.py reducer.py || true
+    
+              echo "--- mapper.py first 40 lines ---"
+              sed -n '1,40p' mapper.py
+    
+              echo "--- reducer.py first 40 lines ---"
+              sed -n '1,40p' reducer.py
+    
+              echo "--- normalize line endings ---"
               sed -i 's/\r$//' mapper.py reducer.py || true
-              
-              echo "Uploading prepared files to GCS..."
-              gcloud storage cp --recursive "$WORK_DIR" "$REPO_GCS_PATH"
-
-              echo "Finding Dataproc master instance..."
-              MASTER_INSTANCE=$(gcloud compute instances list \
-                --filter="name ~ ^${DATAPROC_CLUSTER}-m AND zone:(${DATAPROC_ZONE})" \
-                --format='value(name)' | head -n 1)
-
-              if [ -z "$MASTER_INSTANCE" ]; then
-                echo "ERROR: Could not find Dataproc master instance."
-                exit 1
-              fi
-
-              echo "Dataproc master instance: $MASTER_INSTANCE"
-
-              echo "Locating Hadoop streaming jar on Dataproc master..."
-              STREAMING_JAR=$(gcloud compute ssh "jenkins@$MASTER_INSTANCE" \
-                --zone "$DATAPROC_ZONE" \
-                --quiet \
-                --command='find /usr/lib -name "hadoop-streaming*.jar" 2>/dev/null | head -n 1' \
-                | tail -n 1 | tr -d '\\r')
-
-              if [ -z "$STREAMING_JAR" ]; then
-                echo "ERROR: Could not find hadoop-streaming jar on Dataproc master."
-                exit 1
-              fi
-
+    
+              echo "--- python compile check ---"
+              python3 -m py_compile mapper.py
+              python3 -m py_compile reducer.py
+    
+              STREAMING_JAR="/usr/lib/hadoop/hadoop-streaming.jar"
+    
               echo "Using streaming jar: $STREAMING_JAR"
-              echo "input file path: $REPO_GCS_PATH"
-
+              echo "Hadoop input path: gs://teamproject-zhang-tong-bucket0/repo-src/23"
+              echo "Hadoop output path: $OUTPUT_GCS_PATH"
+    
               echo "Submitting Hadoop Streaming job..."
               gcloud dataproc jobs submit hadoop \
                 --project "$GCP_PROJECT" \
@@ -141,6 +114,8 @@ spec:
         }
       }
     }
+
+    
   }
 
   post {
